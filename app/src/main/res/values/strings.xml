@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">messenger</string>
+    <string name="enter_chat_name">Enter chat name</string>
+    <string name="enter_message">Enter message</string>
+    <string name="create_a_new_chat">Create a new chat</string>
+    <string name="open_a_chat">Open a chat</string>
+</resources>
