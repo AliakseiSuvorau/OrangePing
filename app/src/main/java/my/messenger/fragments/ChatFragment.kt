@@ -2,9 +2,6 @@ package my.messenger.fragments
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.fragment.app.Fragment
@@ -16,21 +13,43 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.messenger.APP_NAME
+import my.messenger.MainActivity
 import my.messenger.R
 import my.messenger.adapters.MessageAdapter
 import my.messenger.network.RetrofitClient
-import my.messenger.network.responses.GetMessagesResponse
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 
-class ChatFragment(
-    private val chatId: Int,
-    private val chatTitle: String
-): Fragment(R.layout.fragment_chat) {
+class ChatFragment : Fragment(R.layout.fragment_chat), OnMessageSendListener {
+    private var chatId: Int = -1
+    private var chatName: String = ""
+    private var scroll: Int = 0
 
     private lateinit var recyclerMessages: RecyclerView
     private lateinit var messagesAdapter: MessageAdapter
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        arguments?.let {
+            chatId = it.getInt(CHAT_ID)
+            chatName = it.getString(CHAT_NAME).orEmpty()
+        }
+    }
+
+    companion object {
+        private const val CHAT_ID = "chat_id"
+        private const val CHAT_NAME = "chat_name"
+        private const val SCROLL = "scroll"
+
+        fun newInstance(chatId: Int, chatName: String): ChatFragment {
+            val fragment = ChatFragment()
+            val args = Bundle().apply {
+                putInt(CHAT_ID, chatId)
+                putString(CHAT_NAME, chatName)
+            }
+            fragment.arguments = args
+            return fragment
+        }
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -40,14 +59,15 @@ class ChatFragment(
         fetchMessages()
 
         childFragmentManager.commit {
-            replace(R.id.new_message_fragment, NewMessageEnterFragment(this@ChatFragment))
+            replace(
+                R.id.new_message_fragment, NewMessageEnterFragment())
         }
 
         val headerFragment = requireActivity()
             .supportFragmentManager
             .findFragmentById(R.id.header) as? HeaderFragment
 
-        headerFragment?.setTitle(chatTitle)
+        headerFragment?.setTitle(chatName)
 
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
             headerFragment?.setTitle(APP_NAME)
@@ -64,20 +84,29 @@ class ChatFragment(
     }
 
     private fun fetchMessages() {
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.chatService.getMessages(chatId)
                 }
+
+                if (!isAdded) return@launch
+
                 messagesAdapter.updateMessages(response.messages)
+                val scrollTo = (activity as? MainActivity)?.chatInfoMap?.let { it[chatId]?.first ?: 0 } ?: 0
+                recyclerMessages.post {
+                    recyclerMessages.scrollBy(0, scrollTo)
+                }
             } catch (e: Exception) {
+                if (!isAdded) return@launch
+
                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    fun createMessage(messageText: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
+    private fun createMessage(messageText: String) {
+        lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.chatService.createMessage(chatId, messageText)
@@ -87,6 +116,24 @@ class ChatFragment(
             } catch (e: Exception) {
                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    override fun onMessageSend(text: String) {
+        createMessage(text)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+
+        outState.putInt(SCROLL, recyclerMessages.computeVerticalScrollOffset())
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+
+        savedInstanceState?.let {
+            scroll = it.getInt(SCROLL, 0)
         }
     }
 }

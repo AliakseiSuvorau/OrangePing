@@ -7,7 +7,6 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -18,11 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.messenger.R
 import my.messenger.adapters.ChatAdapter
-import my.messenger.network.responses.GetChatsResponse
 import my.messenger.network.RetrofitClient
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 
 class ChatsListFragment : Fragment(R.layout.fragment_chat_list) {
 
@@ -68,7 +63,7 @@ class ChatsListFragment : Fragment(R.layout.fragment_chat_list) {
     }
 
     private fun createChat(name: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.chatService.createChat(name)
@@ -81,14 +76,19 @@ class ChatsListFragment : Fragment(R.layout.fragment_chat_list) {
     }
 
     private fun fetchChats() {
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.chatService.getChats()
                 }
+
+                if (!isAdded) return@launch
+
                 chatsAdapter.updateChats(response.chats)
             } catch (e: Exception) {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                if (!isAdded) return@launch
+
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }

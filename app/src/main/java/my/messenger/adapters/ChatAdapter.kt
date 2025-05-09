@@ -3,6 +3,7 @@ package my.messenger.adapters
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -17,7 +18,7 @@ import my.messenger.fragments.ChatFragment
 
 class ChatAdapter (
     private val chats: MutableList<Chat>,
-    private val fragment: Fragment,
+    private val fragment: Fragment
 ): RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
     inner class ChatViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -27,14 +28,21 @@ class ChatAdapter (
 
         fun render(chat: Chat) {
             chatName.text = chat.name
+
             Glide.with(fragment)
                 .load(DEFAULT_CHAT_IC_LINK)
                 .into(chatIcon)
 
             chatBar.setOnClickListener {
-                fragment.requireActivity().supportFragmentManager.commit {
-                    replace(R.id.fragment_container, ChatFragment(chat.id, chat.name))
-                    addToBackStack(null)
+                if (fragment.requireActivity().findViewById<FrameLayout>(R.id.fragment_container) != null) {
+                    fragment.requireActivity().supportFragmentManager.commit {
+                        replace(R.id.fragment_container, ChatFragment.newInstance(chat.id, chat.name))
+                        addToBackStack(null)
+                    }
+                } else {
+                    fragment.requireActivity().supportFragmentManager.commit {
+                        replace(R.id.current_chat, ChatFragment.newInstance(chat.id, chat.name))
+                    }
                 }
             }
         }
